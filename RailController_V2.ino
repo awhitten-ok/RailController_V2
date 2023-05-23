@@ -4,7 +4,7 @@
 
 const char *ssid = "Whittenwifi";
 const char *password = "AmWhitten2016";
-const char *mqttServer = "localhost";
+const char *mqttServer = "192.168.1.73";
 const char *mqttUser = NULL;
 const char *mqttPassword = NULL;
 int mqttPort = 1883;
@@ -20,6 +20,7 @@ const char *user = "DRK2";
 
 void wifiConnect()
 {
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
   // Loops until WiFi is connected
@@ -75,6 +76,7 @@ void mqttSubscribe()
 // All Communication Logic goes here
 void callback(char *topic, byte *payload, unsigned int length)
 {
+  String tempMessage = payloadToString(payload, length);
   String message;
   if (tempMessage.startsWith("moveToPosition?"))
   {
@@ -86,26 +88,26 @@ void callback(char *topic, byte *payload, unsigned int length)
     Serial.println("Received command to move to " + tempMessage);
 
     message = stepperController.moveToPosition(movementParam);
-    client.publish(pTopic, message);
   }
   else if (tempMessage.equals("areYouReady"))
   {
-    client.publish(pTopic, "99");
+    message = "99";
     yield();
   }
   else if (tempMessage.equals("calibrate"))
   {
     message = "99";
     stepperController.calibration();
-    client.publish(pTopic, message);
     yield();
   }
   else if (tempMessage.equals("currentPosition"))
   {
     int position = stepperController.getCurrentPosition();
     message = String(position);
-    client.publish(pTopic, message);
   }
+  char messageBuffer[message.length() + 1];
+  message = message + '\0';  message.toCharArray(messageBuffer, message.length());
+  client.publish(pTopic, messageBuffer);
   yield();
 }
 
@@ -130,6 +132,7 @@ void setup()
 {
   Serial.begin(115200);
   stepperController.stepperSetup();
+  stepperController.calibration();
   wifiConnect();
   mqttConnect();
   mqttSubscribe();
@@ -137,6 +140,10 @@ void setup()
 
 void loop()
 {
+   if (client.connected() == false){
+    wifiConnect();
+    yield();
+  }
   client.loop();
   yield();
 }

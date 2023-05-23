@@ -65,7 +65,7 @@ String stepperController::moveToPosition(long positionValue)
   Serial.println("In moveToPosition");
   digitalWrite(dirPin, LOW);
   digitalWrite(Enable, LOW);
-  std::string message;
+  String message;
 
   Serial.println(stepper.maxSpeed());
   stepper.moveTo(positionValue);
@@ -118,7 +118,7 @@ String stepperController::moveToPosition(long positionValue)
 }
 
 // Calibration runs once upon reset of ESP
- stepperController::calibration()
+void stepperController::calibration()
 {
   digitalWrite(Enable, LOW);
   Serial.println("Spinning Counter-Clockwise...");
