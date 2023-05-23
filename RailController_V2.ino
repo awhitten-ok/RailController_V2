@@ -1,30 +1,25 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
+#include "stepperController.h"
 
-const char *ssid = "Homenet";
-const char *password = "00000001";
-const char *mqttServer = "10.0.0.7";
+const char *ssid = "Whittenwifi";
+const char *password = "AmWhitten2016";
+const char *mqttServer = "localhost";
 const char *mqttUser = NULL;
 const char *mqttPassword = NULL;
 int mqttPort = 1883;
 
-const char *configServer = "10.0.0.7";
-int configPort = 9999;
-
 WiFiClient espClient;
-WiFiClient configClient;
 
 PubSubClient client(espClient);
+
+stepperController stepperController;
 const char *pTopic = "DRK2/response";
 const char *sTopic = "DRK2/command";
 const char *user = "DRK2";
 
 void wifiConnect()
 {
-
-  // Deprecate
-  // WiFi.mode(WIFI_STA);
-
   WiFi.begin(ssid, password);
 
   // Loops until WiFi is connected
@@ -36,9 +31,6 @@ void wifiConnect()
   }
   Serial.println("Connected to the WiFi network");
   WiFi.setAutoReconnect(true);
-
-  // Deprecate
-  // WiFi.persistent(false);
 }
 
 void mqttConnect()
@@ -64,21 +56,9 @@ void mqttConnect()
       Serial.print(client.state());
       delay(1000);
     }
-    // delay(0);
     yield();
   }
   yield();
-}
-
-void configConnect() {
-  if (configClient.connect(configServer, configPort)) {
-    configClient.print("hello, world");
-    String response = configClient.readStringUntil('\n');
-    Serial.println(response);
-    configClient.stop();
-  } else {
-    Serial.println("Couldn't connect");
-  }
 }
 
 void mqttSubscribe()
@@ -95,17 +75,7 @@ void mqttSubscribe()
 // All Communication Logic goes here
 void callback(char *topic, byte *payload, unsigned int length)
 {
-
-  Serial.print("Message arrived in topic: ");
-  // Serial.println(topic);
-
-  Serial.print("Message:");
-  String tempMessage = payloadToString(payload, length);
-  // Serial.print(tempMessage);
-
-  Serial.println();
-  Serial.println("-----------------------");
-  // CHANGE TO SWITCH STATEMENT
+  String message;
   if (tempMessage.startsWith("moveToPosition?"))
   {
 
@@ -115,19 +85,26 @@ void callback(char *topic, byte *payload, unsigned int length)
 
     Serial.println("Received command to move to " + tempMessage);
 
-    Serial.println(movementParam + 5);
-
-    // stepControl.moveToPosition(stepControl.getHomePosition(), client);
-  }
-  else if (tempMessage.equals("openLock"))
-  {
-    // stepControl.openLock(client);
-    yield();
+    message = stepperController.moveToPosition(movementParam);
+    client.publish(pTopic, message);
   }
   else if (tempMessage.equals("areYouReady"))
   {
     client.publish(pTopic, "99");
     yield();
+  }
+  else if (tempMessage.equals("calibrate"))
+  {
+    message = "99";
+    stepperController.calibration();
+    client.publish(pTopic, message);
+    yield();
+  }
+  else if (tempMessage.equals("currentPosition"))
+  {
+    int position = stepperController.getCurrentPosition();
+    message = String(position);
+    client.publish(pTopic, message);
   }
   yield();
 }
@@ -152,10 +129,10 @@ String payloadToString(byte *payload, unsigned int length)
 void setup()
 {
   Serial.begin(115200);
+  stepperController.stepperSetup();
   wifiConnect();
   mqttConnect();
   mqttSubscribe();
-  configConnect();
 }
 
 void loop()
