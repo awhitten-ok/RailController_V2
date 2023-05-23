@@ -1,14 +1,19 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
-const char *ssid = "OpenKey_Wifi";
-const char *password = "OpenKey is #1 in keys!";
-const char *mqttServer = "192.168.1.152";
+const char *ssid = "Homenet";
+const char *password = "00000001";
+const char *mqttServer = "10.0.0.7";
 const char *mqttUser = NULL;
 const char *mqttPassword = NULL;
 int mqttPort = 1883;
 
+const char *configServer = "10.0.0.7";
+int configPort = 9999;
+
 WiFiClient espClient;
+WiFiClient configClient;
+
 PubSubClient client(espClient);
 const char *pTopic = "DRK2/response";
 const char *sTopic = "DRK2/command";
@@ -65,11 +70,22 @@ void mqttConnect()
   yield();
 }
 
+void configConnect() {
+  if (configClient.connect(configServer, configPort)) {
+    configClient.print("hello, world");
+    String response = configClient.readStringUntil('\n');
+    Serial.println(response);
+    configClient.stop();
+  } else {
+    Serial.println("Couldn't connect");
+  }
+}
+
 void mqttSubscribe()
 {
   while (!client.subscribe(sTopic))
   {
-    Serial.println("Subscribing to " + sTopic);
+    Serial.println("Subscribing to " + *sTopic);
     yield();
   }
   yield();
@@ -90,20 +106,22 @@ void callback(char *topic, byte *payload, unsigned int length)
   Serial.println();
   Serial.println("-----------------------");
   // CHANGE TO SWITCH STATEMENT
-  if (tempMessage.startsWith("moveToPosition?125"))
+  if (tempMessage.startsWith("moveToPosition?"))
   {
 
     tempMessage.remove(0, tempMessage.indexOf("?") + 1);
 
-    // const unsigned int movementParam = (int)tempMessage;
+    const unsigned int movementParam = tempMessage.toInt();
 
     Serial.println("Received command to move to " + tempMessage);
+
+    Serial.println(movementParam + 5);
 
     // stepControl.moveToPosition(stepControl.getHomePosition(), client);
   }
   else if (tempMessage.equals("openLock"))
   {
-    stepControl.openLock(client);
+    // stepControl.openLock(client);
     yield();
   }
   else if (tempMessage.equals("areYouReady"))
@@ -137,6 +155,7 @@ void setup()
   wifiConnect();
   mqttConnect();
   mqttSubscribe();
+  configConnect();
 }
 
 void loop()
